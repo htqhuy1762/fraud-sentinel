@@ -24,3 +24,19 @@ management:
     web:
       exposure:
         include: health,info,metrics
+
+fraud:
+  rules:
+    high-amount:
+      enabled: true
+      threshold: 50000000
+      score: 60
+    night-time:
+      enabled: true
+      start-hour: 1
+      end-hour: 4
+      zone: Asia/Ho_Chi_Minh
+      score: 20
+  decision:
+    review-threshold: 50
+    block-threshold: 80

@@ -13,6 +13,7 @@ spring:
     redis:
       host: localhost
       port: 6379
+      timeout: 200ms
   kafka:
     bootstrap-servers: localhost:9092
 
@@ -37,6 +38,11 @@ fraud:
       end-hour: 4
       zone: Asia/Ho_Chi_Minh
       score: 20
+    velocity:
+      enabled: true
+      window-seconds: 60
+      max-count: 5
+      score: 50
   decision:
     review-threshold: 50
     block-threshold: 80

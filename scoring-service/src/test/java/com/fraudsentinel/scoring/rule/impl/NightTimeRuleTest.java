@@ -14,7 +14,8 @@ class NightTimeRuleTest {
     private final NightTimeRule rule = new NightTimeRule(new FraudProperties(
             new FraudProperties.Rules(
                     new FraudProperties.HighAmount(true, new BigDecimal("50000000"), 60),
-                    new FraudProperties.NightTime(true, 1, 4, "Asia/Ho_Chi_Minh", 20)),
+                    new FraudProperties.NightTime(true, 1, 4, "Asia/Ho_Chi_Minh", 20),
+                    new FraudProperties.Velocity(true, 60, 5, 50)),
             new FraudProperties.DecisionThresholds(50, 80)));
 
     private Transaction txnAt(String utc) {

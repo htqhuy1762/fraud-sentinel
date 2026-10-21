@@ -19,6 +19,11 @@ spring:
       timeout: 200ms
   kafka:
     bootstrap-servers: localhost:9092
+    consumer:
+      group-id: scoring-service
+      auto-offset-reset: earliest
+    listener:
+      concurrency: 3
 
 server:
   port: 8081
@@ -49,3 +54,8 @@ fraud:
   decision:
     review-threshold: 50
     block-threshold: 80
+
+app:
+  topics:
+    transactions: transactions.in
+    decisions: decisions.out

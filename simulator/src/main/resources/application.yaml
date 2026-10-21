@@ -1,0 +1,15 @@
+spring:
+  application:
+    name: simulator
+  main:
+    keep-alive: true
+  kafka:
+    bootstrap-servers: localhost:9092
+    producer:
+      acks: all
+
+simulator:
+  topic: transactions.in
+  accounts: 1000
+  tps: 10
+  fraud-rate: 0.02

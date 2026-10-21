@@ -11,5 +11,6 @@
 
     <modules>
         <module>scoring-service</module>
+        <module>simulator</module>
     </modules>
 </project>

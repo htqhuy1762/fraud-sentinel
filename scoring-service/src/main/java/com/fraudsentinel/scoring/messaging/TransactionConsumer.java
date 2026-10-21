@@ -6,22 +6,16 @@ import com.fraudsentinel.scoring.scoring.ScoringService;
 import jakarta.validation.ConstraintViolation;
 import jakarta.validation.Validator;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Component;
-import tools.jackson.core.JacksonException;
 import tools.jackson.databind.json.JsonMapper;
 
 import java.util.Set;
 
 @Component
 public class TransactionConsumer {
-
-    private static final Logger log = LoggerFactory.getLogger(TransactionConsumer.class);
-
     private final ScoringService scoringService;
     private final KafkaTemplate<String, String> kafka;
     private final JsonMapper json;
@@ -40,22 +34,19 @@ public class TransactionConsumer {
 
     @KafkaListener(topics = "${app.topics.transactions}")
     public void onMessage(ConsumerRecord<String, String> record) {
-        Transaction txn;
-        try {
-            txn = json.readValue(record.value(), Transaction.class);
-        } catch (JacksonException e) {
-            // JSON hỏng: retry bao nhiêu lần cũng hỏng → log rồi bỏ qua (sau này: đẩy vào dead-letter topic)
-            log.error("Bad JSON at partition={} offset={}: {}", record.partition(), record.offset(), e.getMessage());
-            return;
-        }
+        // JSON hỏng → JacksonException → error handler đẩy thẳng sang DLT
+        Transaction txn = json.readValue(record.value(), Transaction.class);
 
         Set<ConstraintViolation<Transaction>> violations = validator.validate(txn);
         if (!violations.isEmpty()) {
-            log.error("Invalid txn {}: {}", txn.txnId(), violations);
-            return;
+            throw new InvalidMessageException("Invalid txn " + txn.txnId() + ": " + violations);
         }
 
         ScoreResult result = scoringService.score(txn);
-        kafka.send(decisionsTopic, txn.accountId(), json.writeValueAsString(result));
+
+        // Chờ Kafka xác nhận đã ghi decision rồi mới cho listener kết thúc (→ mới commit offset)
+        KafkaSendSupport.await(
+                kafka.send(decisionsTopic, txn.accountId(), json.writeValueAsString(result)),
+                "decision for txn " + txn.txnId());
     }
 }

@@ -18,17 +18,21 @@ flowchart LR
         CON[TransactionConsumer]
         SVC[ScoringService]
         ENG[RuleEngine]
-        AL[AlertListener]
+        PUB[AlertPublisher]
+        AC[AlertConsumer]
         API --> SVC
         CON --> SVC
         SVC --> ENG
-        SVC -. "RuleAlertEvent" .-> AL
+        SVC -. "RuleAlertEvent" .-> PUB
     end
 
-    K --> CON
+    K -- "transactions.in" --> CON
     ENG -- "velocity window" --> R[(Redis)]
-    AL -- "alerts" --> PG[(PostgreSQL)]
-    CON -- "decisions.out" --> K
+    PUB -- "rule-alerts (wait for ack)" --> K
+    K -- "rule-alerts" --> AC
+    AC --> PG[(PostgreSQL)]
+    CON -- "decisions.out (wait for ack)" --> K
+    K -. "failed messages" .-> DLT[("*-dlt topics")]
 ```
 
 - **Two entry points, one scoring path.** A synchronous REST API (the approve-before-payment flow) and an asynchronous Kafka consumer (post-transaction monitoring) both call the same `ScoringService`.
@@ -55,7 +59,11 @@ Scores are summed (capped at 100): **≥ 80 → BLOCK**, **≥ 50 → REVIEW**, 
 
 **Kafka partitioned by account.** Messages are keyed by `accountId`, so all transactions of one account land on the same partition and are processed in order by one consumer, which is what the velocity rule needs. Malformed or invalid messages are logged and skipped instead of blocking the partition (poison-pill handling).
 
-**At-least-once, made safe by idempotency.** A consumer can crash after publishing a decision but before committing its offset, so a transaction may be scored twice. That is harmless here: velocity is keyed by transaction ID and alerts have a `UNIQUE (txn_id)` constraint.
+**At-least-once, made safe by idempotency.** Every Kafka send waits for the broker acknowledgement before the listener returns, so an offset is only committed after its outputs are durable. A consumer can still crash after publishing but before committing, so a transaction may be scored twice. That is harmless here: velocity is keyed by transaction ID and alerts have a `UNIQUE (txn_id)` constraint.
+
+**No decision without a record.** A REVIEW or BLOCK decision is only returned after its alert has been acknowledged by Kafka (`rule-alerts`). If that fails, the REST API answers **503 within ~3 s** (tight producer timeouts) instead of returning an unrecorded decision, and the Kafka path retries. A separate consumer group (`alert-writer`) persists alerts, so a database outage delays alert storage without losing alerts or slowing scoring.
+
+**Dead-letter topics.** Failures are classified: malformed JSON and invalid transactions go straight to `transactions.in-dlt` (retrying cannot fix them), while transient failures such as a database blip are retried twice before landing in `<topic>-dlt`. A single bad message therefore never blocks its partition, and failed messages keep their error details in headers for later replay.
 
 **Schema owned by Flyway.** Hibernate only validates (`ddl-auto: validate`); every schema change is a versioned SQL migration.
 
@@ -131,9 +139,10 @@ fraud-sentinel/
 
 These are deliberate next steps, not oversights:
 
-- **Alerts are written asynchronously in memory (`@Async`).** If the service dies between returning a decision and saving the alert, that alert is lost. Planned fix: publish alerts to a Kafka topic or use a transactional outbox.
 - **Rule thresholds need a restart to change.** Planned: rules stored in the database with versioning and hot reload.
-- **No dead-letter topic yet.** Bad messages are only logged.
+- **Alert and decision are two separate sends.** If the alert succeeds and the decision fails, the whole message is retried; idempotency keeps the result correct, but Kafka transactions would make both writes atomic.
+- **Short fixed retry before dead-lettering alerts.** A long database outage moves alerts into `rule-alerts-dlt` instead of waiting; an exponential back-off and a replay tool are planned.
+- **Same rules on both paths.** The REST (pre-transaction) and Kafka (post-transaction) paths run the same rule set; heavier rules that only run asynchronously and flag accounts for the inline path are planned.
 - **Event time is trusted.** The velocity window uses the transaction's own timestamp; a production system would reject timestamps that drift too far from server time.
 
 ## Roadmap
@@ -142,7 +151,7 @@ These are deliberate next steps, not oversights:
 - [x] Redis sliding-window velocity rule
 - [x] Alert persistence with Flyway
 - [x] Kafka pipeline and transaction simulator
-- [ ] Durable alerts (Kafka or outbox) and dead-letter topic
+- [x] Durable alerts via Kafka and dead-letter topics
 - [ ] Case management: assign, resolve and audit trail for analysts
 - [ ] Rule hit-rate and false-positive measurement using the simulator's scenario labels
 - [ ] Observability: Micrometer, Prometheus, Grafana (p99 scoring latency)

@@ -31,6 +31,14 @@ public class Alert {
     private Instant txnTime;
     private Instant createdAt;
 
+    @Version
+    private Long version;
+
+    private String assignee;
+    private Instant assignedAt;
+    private Instant resolvedAt;
+    private String resolutionNote;
+
     protected Alert() {}   // JPA bắt buộc có constructor rỗng
 
     public static Alert from(RuleAlertEvent event) {
@@ -59,4 +67,50 @@ public class Alert {
     public AlertStatus getStatus() { return status; }
     public Instant getTxnTime() { return txnTime; }
     public Instant getCreatedAt() { return createdAt; }
+
+    // ─── Workflow ───────────────────────────────────────────────
+
+    public void assign(String analyst, Instant now) {
+        requireStatus(AlertStatus.OPEN, "assign");
+        this.assignee = analyst;
+        this.assignedAt = now;
+        this.status = AlertStatus.IN_REVIEW;
+    }
+
+    public void release(String analyst) {
+        requireStatus(AlertStatus.IN_REVIEW, "release");
+        requireAssignee(analyst);
+        this.assignee = null;
+        this.assignedAt = null;
+        this.status = AlertStatus.OPEN;
+    }
+
+    public void resolve(String analyst, AlertStatus outcome, String note, Instant now) {
+        if (outcome != AlertStatus.CONFIRMED_FRAUD && outcome != AlertStatus.FALSE_POSITIVE) {
+            throw new IllegalArgumentException("Outcome must be CONFIRMED_FRAUD or FALSE_POSITIVE");
+        }
+        requireStatus(AlertStatus.IN_REVIEW, "resolve");
+        requireAssignee(analyst);
+        this.status = outcome;
+        this.resolvedAt = now;
+        this.resolutionNote = note;
+    }
+
+    private void requireStatus(AlertStatus expected, String action) {
+        if (this.status != expected) {
+            throw new AlertStateException("Cannot " + action + " alert " + id + " in status " + status);
+        }
+    }
+
+    private void requireAssignee(String analyst) {
+        if (!analyst.equals(this.assignee)) {
+            throw new NotAssigneeException(analyst, assignee);
+        }
+    }
+
+    public Long getVersion() { return version; }
+    public String getAssignee() { return assignee; }
+    public Instant getAssignedAt() { return assignedAt; }
+    public Instant getResolvedAt() { return resolvedAt; }
+    public String getResolutionNote() { return resolutionNote; }
 }

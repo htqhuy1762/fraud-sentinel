@@ -14,10 +14,12 @@ public class AlertConsumer {
 
     private final AlertRepository repository;
     private final JsonMapper json;
+    private final AlertCaseService caseService;
 
-    public AlertConsumer(AlertRepository repository, JsonMapper json) {
+    public AlertConsumer(AlertRepository repository, JsonMapper json,  AlertCaseService caseService) {
         this.repository = repository;
         this.json = json;
+        this.caseService = caseService;
     }
 
     @KafkaListener(topics = "${app.topics.alerts}", groupId = "alert-writer")
@@ -30,7 +32,7 @@ public class AlertConsumer {
             return;
         }
         try {
-            Alert saved = repository.save(Alert.from(event));
+            Alert saved = caseService.open(event);
             log.warn("ALERT saved id={} txn={} decision={} reasons={}",
                     saved.getId(), txnId, saved.getDecision(), saved.getReasons());
         } catch (DataIntegrityViolationException e) {

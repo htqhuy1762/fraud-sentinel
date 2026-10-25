@@ -46,11 +46,13 @@ flowchart LR
 | `TIME_NIGHT` | Transaction at night, Vietnam local time | 01:00–04:00 | 20 |
 | `VEL_BURST` | Too many transactions per account in a sliding window | > 5 in 60 s | 50 |
 
-Scores are summed (capped at 100): **≥ 80 → BLOCK**, **≥ 50 → REVIEW**, otherwise **APPROVE**. All thresholds, scores and on/off switches live in `application.yaml`.
+Scores are summed (capped at 100): **≥ 80 → BLOCK**, **≥ 50 → REVIEW**, otherwise **APPROVE**. Each rule's on/off switch, score and parameters live in the `rule_config` table and can be changed at runtime through `PUT /api/v1/rules/{code}`; the decision thresholds live in `application.yaml`.
 
 ## Design decisions
 
-**Pluggable rule engine.** Each rule is a Spring component implementing `Rule`. The engine receives every `Rule` bean automatically, so adding a rule means adding one class. Each rule runs inside its own `try/catch`: if one fails (for example Redis is down), it is skipped and the transaction still gets a decision instead of an error.
+**Pluggable rule engine.** Each rule is a Spring component implementing `Rule`. The engine receives every `Rule` bean automatically, so adding a rule means adding one class. Each rule runs inside its own `try/catch`: if one fails (for example Redis is down), it is skipped and the transaction still gets a decision instead of an error. Rules are pure functions of the transaction and their typed parameters, so they are unit-tested without Spring.
+
+**Rule configuration in the database, hot-reloaded.** Postgres is the source of truth; each instance keeps an immutable in-memory snapshot, so scoring never queries the database. The snapshot is loaded at startup (the service refuses to start without it, rather than run with no rules), refreshed every 10 s, and reloaded immediately after an update. It is swapped with a single `volatile` assignment (copy-on-write), so the hot path needs no locks and never sees a half-applied change. If a refresh fails the previous snapshot stays in force; if one rule's parameters are invalid only that rule keeps its previous config. Parameters are validated by the rule's own typed record before anything is saved. Updates carry the version the client last read and are rejected with **409** if someone changed the rule in between, and every change is recorded in `rule_config_audit`.
 
 **Sliding-window velocity on Redis.** Each account has a sorted set (`vel:acc:{accountId}`) with the transaction ID as member and the timestamp as score. One Lua script trims expired entries, adds the current transaction, refreshes the TTL and counts the window:
 - *Atomic*: Redis runs the script as a single unit, so concurrent requests for the same account cannot interleave and miscount. It is also one network round-trip instead of four.
@@ -153,7 +155,7 @@ fraud-sentinel/
 These are deliberate next steps, not oversights:
 
 - **Analyst identity is trusted from a request header.** `X-Analyst-Id` is not authenticated yet; Spring Security with JWT is planned. Confirming fraud also has no second approver (maker-checker) yet.
-- **Rule thresholds need a restart to change.** Planned: rules stored in the database with versioning and hot reload.
+- **Rule changes reach other instances by polling.** An update applies immediately on the instance that received it and within one refresh interval (10 s) elsewhere; a push notification (e.g. Redis Pub/Sub) with polling kept as a safety net would shorten that gap.
 - **Alert and decision are two separate sends.** If the alert succeeds and the decision fails, the whole message is retried; idempotency keeps the result correct, but Kafka transactions would make both writes atomic.
 - **Short fixed retry before dead-lettering alerts.** A long database outage moves alerts into `rule-alerts-dlt` instead of waiting; an exponential back-off and a replay tool are planned.
 - **Same rules on both paths.** The REST (pre-transaction) and Kafka (post-transaction) paths run the same rule set; heavier rules that only run asynchronously and flag accounts for the inline path are planned.
@@ -167,7 +169,7 @@ These are deliberate next steps, not oversights:
 - [x] Kafka pipeline and transaction simulator
 - [x] Durable alerts via Kafka and dead-letter topics
 - [x] Case management: assign, release, resolve, audit trail, per-rule precision
-- [ ] Rules stored in the database: enable, disable and retune without redeploying
+- [x] Rules stored in the database: enable, disable and retune without redeploying
 - [ ] More velocity features (amount per 1 h / 24 h, new recipients, accounts sharing a device) and the rules built on them: new device + high value, impossible travel, card testing, blacklist, night activity unusual for the account
 - [ ] Shadow mode: run a new rule version alongside the live one without affecting decisions
 - [ ] Observability: Micrometer, Prometheus, Grafana (p99 scoring latency, false-positive rate from the simulator's scenario labels)

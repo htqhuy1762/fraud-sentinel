@@ -2,9 +2,12 @@ package com.fraudsentinel.scoring.rule;
 
 import com.fraudsentinel.scoring.domain.Transaction;
 
-public interface Rule {
+/**
+ * @param <P> kiểu params riêng của rule (đọc từ cột rule_config.params)
+ */
+public interface Rule<P> {
     String code();
     SubjectType subjectType();
-    boolean enabled();
-    RuleResult evaluate(Transaction txn);
+    Class<P> paramsType();
+    RuleResult evaluate(Transaction txn, P params, int score);
 }

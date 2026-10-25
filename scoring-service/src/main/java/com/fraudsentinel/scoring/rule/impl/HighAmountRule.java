@@ -1,28 +1,31 @@
 package com.fraudsentinel.scoring.rule.impl;
 
-import com.fraudsentinel.scoring.config.FraudProperties;
 import com.fraudsentinel.scoring.domain.Transaction;
 import com.fraudsentinel.scoring.rule.*;
 import org.springframework.stereotype.Component;
 
+import java.math.BigDecimal;
+
 @Component
-public class HighAmountRule implements Rule {
+public class HighAmountRule implements Rule<HighAmountRule.Params> {
 
-    private final FraudProperties.HighAmount cfg;
-
-    public HighAmountRule(FraudProperties props) {
-        this.cfg = props.rules().highAmount();
+    public record Params(BigDecimal threshold) {
+        public Params {
+            if (threshold == null || threshold.signum() <= 0) {
+                throw new IllegalArgumentException("threshold must be > 0");
+            }
+        }
     }
 
     @Override public String code() { return "AMT_HIGH"; }
     @Override public SubjectType subjectType() { return SubjectType.CUSTOMER; }
-    @Override public boolean enabled() { return cfg.enabled(); }
+    @Override public Class<Params> paramsType() { return Params.class; }
 
     @Override
-    public RuleResult evaluate(Transaction txn) {
-        if (txn.amount().compareTo(cfg.threshold()) > 0) {
-            return RuleResult.hit(code(), cfg.score(),
-                    "Amount %s exceeds %s".formatted(txn.amount(), cfg.threshold()));
+    public RuleResult evaluate(Transaction txn, Params p, int score) {
+        if (txn.amount().compareTo(p.threshold()) > 0) {
+            return RuleResult.hit(code(), score,
+                    "Amount %s exceeds %s".formatted(txn.amount(), p.threshold()));
         }
         return RuleResult.pass(code());
     }

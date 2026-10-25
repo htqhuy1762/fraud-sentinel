@@ -1,6 +1,5 @@
 package com.fraudsentinel.scoring.rule.impl;
 
-import com.fraudsentinel.scoring.config.FraudProperties;
 import com.fraudsentinel.scoring.domain.Transaction;
 import com.fraudsentinel.scoring.feature.VelocityStore;
 import com.fraudsentinel.scoring.rule.*;
@@ -9,30 +8,33 @@ import org.springframework.stereotype.Component;
 import java.time.Duration;
 
 @Component
-public class VelocityRule implements Rule {
+public class VelocityRule implements Rule<VelocityRule.Params> {
 
-    private final FraudProperties.Velocity cfg;
+    public record Params(int windowSeconds, int maxCount) {
+        public Params {
+            if (windowSeconds <= 0 || maxCount <= 0) {
+                throw new IllegalArgumentException("windowSeconds and maxCount must be > 0");
+            }
+        }
+    }
+
     private final VelocityStore store;
-    private final Duration window;
 
-    public VelocityRule(FraudProperties props, VelocityStore store) {
-        this.cfg = props.rules().velocity();
+    public VelocityRule(VelocityStore store) {
         this.store = store;
-        this.window = Duration.ofSeconds(cfg.windowSeconds());
     }
 
     @Override public String code() { return "VEL_BURST"; }
     @Override public SubjectType subjectType() { return SubjectType.CUSTOMER; }
-    @Override public boolean enabled() { return cfg.enabled(); }
+    @Override public Class<Params> paramsType() { return Params.class; }
 
     @Override
-    public RuleResult evaluate(Transaction txn) {
+    public RuleResult evaluate(Transaction txn, Params p, int score) {
         String key = "vel:acc:" + txn.accountId();
-        long count = store.recordAndCount(key, txn.txnId(), txn.timestamp(), window);
-
-        if (count > cfg.maxCount()) {
-            return RuleResult.hit(code(), cfg.score(),
-                    "%d transactions in last %ds (max %d)".formatted(count, cfg.windowSeconds(), cfg.maxCount()));
+        long count = store.recordAndCount(key, txn.txnId(), txn.timestamp(), Duration.ofSeconds(p.windowSeconds()));
+        if (count > p.maxCount()) {
+            return RuleResult.hit(code(), score,
+                    "%d transactions in last %ds (max %d)".formatted(count, p.windowSeconds(), p.maxCount()));
         }
         return RuleResult.pass(code());
     }

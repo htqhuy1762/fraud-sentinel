@@ -1,6 +1,5 @@
 package com.fraudsentinel.scoring.rule.impl;
 
-import com.fraudsentinel.scoring.config.FraudProperties;
 import com.fraudsentinel.scoring.domain.Transaction;
 import com.fraudsentinel.scoring.feature.VelocityStore;
 import org.junit.jupiter.api.Test;
@@ -12,15 +11,11 @@ import static org.junit.jupiter.api.Assertions.*;
 
 class VelocityRuleTest {
 
+    private final VelocityRule.Params params = new VelocityRule.Params(60, 5);
+
     private VelocityRule ruleWithCount(long fakeCount) {
-        VelocityStore fakeStore = (key, id, time, window) -> fakeCount;   // giả lập Redis
-        FraudProperties props = new FraudProperties(
-                new FraudProperties.Rules(
-                        new FraudProperties.HighAmount(true, new BigDecimal("50000000"), 60),
-                        new FraudProperties.NightTime(true, 1, 4, "Asia/Ho_Chi_Minh", 20),
-                        new FraudProperties.Velocity(true, 60, 5, 50)),
-                new FraudProperties.DecisionThresholds(50, 80));
-        return new VelocityRule(props, fakeStore);
+        VelocityStore fakeStore = (key, id, time, window) -> fakeCount;
+        return new VelocityRule(fakeStore);
     }
 
     private final Transaction txn = new Transaction("T1", "ACC1", new BigDecimal("1000"), "VND",
@@ -28,11 +23,11 @@ class VelocityRuleTest {
 
     @Test
     void passes_at_limit() {
-        assertFalse(ruleWithCount(5).evaluate(txn).hit());
+        assertFalse(ruleWithCount(5).evaluate(txn, params, 50).hit());
     }
 
     @Test
     void hits_above_limit() {
-        assertTrue(ruleWithCount(6).evaluate(txn).hit());
+        assertTrue(ruleWithCount(6).evaluate(txn, params, 50).hit());
     }
 }

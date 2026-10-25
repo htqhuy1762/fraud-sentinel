@@ -4,6 +4,8 @@ import com.fraudsentinel.scoring.alert.AlertNotFoundException;
 import com.fraudsentinel.scoring.alert.AlertStateException;
 import com.fraudsentinel.scoring.alert.NotAssigneeException;
 import com.fraudsentinel.scoring.messaging.KafkaPublishException;
+import com.fraudsentinel.scoring.rule.RuleNotFoundException;
+import com.fraudsentinel.scoring.rule.StaleRuleConfigException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
@@ -50,5 +52,15 @@ public class ApiExceptionHandler {
     @ExceptionHandler(IllegalArgumentException.class)
     ProblemDetail onBadArgument(IllegalArgumentException e) {
         return ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, e.getMessage());
+    }
+
+    @ExceptionHandler(RuleNotFoundException.class)
+    ProblemDetail onRuleNotFound(RuleNotFoundException e) {
+        return ProblemDetail.forStatusAndDetail(HttpStatus.NOT_FOUND, e.getMessage());
+    }
+
+    @ExceptionHandler(StaleRuleConfigException.class)
+    ProblemDetail onStaleRule(StaleRuleConfigException e) {
+        return ProblemDetail.forStatusAndDetail(HttpStatus.CONFLICT, e.getMessage());
     }
 }

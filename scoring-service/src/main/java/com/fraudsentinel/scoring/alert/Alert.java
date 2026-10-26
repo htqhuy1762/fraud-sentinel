@@ -1,6 +1,7 @@
 package com.fraudsentinel.scoring.alert;
 
 import com.fraudsentinel.scoring.domain.Decision;
+import com.fraudsentinel.scoring.rule.Stage;
 import jakarta.persistence.*;
 
 import java.math.BigDecimal;
@@ -24,6 +25,11 @@ public class Alert {
     private Decision decision;
 
     private String reasons;
+
+    @Enumerated(EnumType.STRING)
+    private Stage stage;
+
+    private Boolean fundsMoved;
 
     @Enumerated(EnumType.STRING)
     private AlertStatus status;
@@ -53,6 +59,8 @@ public class Alert {
         a.status = AlertStatus.OPEN;
         a.txnTime = event.transaction().timestamp();
         a.createdAt = event.createdAt();
+        a.stage = event.stage();
+        a.fundsMoved = event.fundsMoved();
         return a;
     }
 
@@ -67,6 +75,8 @@ public class Alert {
     public AlertStatus getStatus() { return status; }
     public Instant getTxnTime() { return txnTime; }
     public Instant getCreatedAt() { return createdAt; }
+    public Stage getStage() { return stage; }
+    public Boolean getFundsMoved() { return fundsMoved; }
 
     // ─── Workflow ───────────────────────────────────────────────
 

@@ -3,6 +3,7 @@ package com.fraudsentinel.scoring.alert;
 import com.fraudsentinel.scoring.domain.Decision;
 import com.fraudsentinel.scoring.domain.ScoreResult;
 import com.fraudsentinel.scoring.domain.Transaction;
+import com.fraudsentinel.scoring.rule.Stage;
 import org.junit.jupiter.api.Test;
 
 import java.math.BigDecimal;
@@ -19,7 +20,7 @@ class AlertWorkflowTest {
         Transaction txn = new Transaction(txnId, "ACC1", new BigDecimal("75000000"), "VND",
                 "MOBILE", "ACC2", "DEV1", "1.1.1.1", Instant.now());
         ScoreResult result = new ScoreResult(txnId, 80, Decision.BLOCK, List.of("AMT_HIGH", "TIME_NIGHT"));
-        return Alert.from(new RuleAlertEvent(txn, result, Instant.now()));
+        return Alert.from(new RuleAlertEvent(txn, result, Stage.INLINE, null, Instant.now()));
     }
 
     @Test

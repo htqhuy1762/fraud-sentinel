@@ -6,7 +6,9 @@ import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
+import java.util.Set;
 
 @Component
 public class RuleEngine {
@@ -22,9 +24,10 @@ public class RuleEngine {
         log.info("Loaded {} rules: {}", rules.size(), rules.stream().map(Rule::code).toList());
     }
 
-    public List<RuleResult> evaluate(Transaction txn) {
+    public List<RuleResult> evaluate(Transaction txn, Set<Stage> stages) {
         List<RuleResult> hits = new ArrayList<>();
         for (Rule<?> rule : rules) {
+            if (Collections.disjoint(rule.stages(), stages)) continue;   // rule không thuộc giai đoạn này
             RuleConfig cfg = configs.get(rule.code());
             if (cfg == null || !cfg.enabled()) continue;
             try {

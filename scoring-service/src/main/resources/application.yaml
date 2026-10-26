@@ -48,8 +48,7 @@ fraud:
 
 app:
   topics:
-    transactions: transactions.in
-    decisions: decisions.out
+    transactions: transactions.completed
     alerts: rule-alerts
   rules:
     refresh-ms: 10000

@@ -27,14 +27,15 @@ public class AlertConsumer {
         RuleAlertEvent event = json.readValue(payload, RuleAlertEvent.class);
         String txnId = event.transaction().txnId();
 
-        if (repository.existsByTxnId(txnId)) {
-            log.info("Alert for txn={} already exists, skip", txnId);
+        if (repository.existsByTxnIdAndStage(txnId, event.stage())) {
+            log.info("Alert for txn={} stage={} already exists, skip", txnId, event.stage());
             return;
         }
         try {
             Alert saved = caseService.open(event);
-            log.warn("ALERT saved id={} txn={} decision={} reasons={}",
-                    saved.getId(), txnId, saved.getDecision(), saved.getReasons());
+            log.warn("ALERT saved id={} txn={} stage={} fundsMoved={} decision={} reasons={}",
+                    saved.getId(), txnId, saved.getStage(), saved.getFundsMoved(),
+                    saved.getDecision(), saved.getReasons());
         } catch (DataIntegrityViolationException e) {
             log.info("Duplicate alert for txn={} (race), skip", txnId);
         }

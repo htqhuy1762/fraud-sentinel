@@ -9,7 +9,9 @@ spring:
       acks: all
 
 simulator:
-  topic: transactions.in
+  topic: transactions.completed
+  scoring-url: http://localhost:8081/api/v1/score
+  fallback-max-amount: 5000000
   accounts: 1000
   tps: 10
   fraud-rate: 0.02

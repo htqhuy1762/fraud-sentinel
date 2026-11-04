@@ -189,7 +189,13 @@ These are deliberate next steps, not oversights:
 - [x] Durable alerts via Kafka and dead-letter topics
 - [x] Case management: assign, release, resolve, audit trail, per-rule precision
 - [x] Rules stored in the database: enable, disable and retune without redeploying
-- [ ] More velocity features (amount per 1 h / 24 h, new recipients, accounts sharing a device) and the rules built on them: new device + high value, impossible travel, card testing, blacklist, night activity unusual for the account
+- [x] Integration tests on Testcontainers (Postgres, Kafka, Redis) covering the inline and monitoring flows
+- [ ] Transaction history: persist every completed transaction and expose an account history for investigations
+- [ ] Blacklist flags: set by monitoring and by confirmed cases, checked inline in a single Redis lookup
+- [ ] Device and recipient features: new device + high value, accounts sharing a device, new recipients in 24 h (first monitoring-only rule), mule-account detection on the receiving side
+- [ ] Amount per 1 h / 24 h and impossible travel
+- [ ] Rule scanner: scheduled detection over the stored transaction history
+- [ ] Night activity unusual for the specific account (behavioural baseline)
 - [ ] Shadow mode: run a new rule version alongside the live one without affecting decisions
 - [ ] Observability: Micrometer, Prometheus, Grafana (p99 scoring latency, false-positive rate from the simulator's scenario labels)
 - [ ] Graph-based detection of mule-account rings

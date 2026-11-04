@@ -1,8 +1,10 @@
 package com.fraudsentinel.scoring.alert;
 
+import com.fraudsentinel.scoring.TestcontainersConfig;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.context.annotation.Import;
 import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.TransactionDefinition;
@@ -13,6 +15,7 @@ import java.time.Instant;
 import static org.junit.jupiter.api.Assertions.*;
 
 @SpringBootTest
+@Import(TestcontainersConfig.class)
 class AlertOptimisticLockIT {
 
     @Autowired AlertRepository repository;

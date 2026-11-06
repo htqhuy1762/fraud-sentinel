@@ -2,6 +2,7 @@ package com.fraudsentinel.scoring.messaging;
 
 import com.fraudsentinel.scoring.domain.Transaction;
 import com.fraudsentinel.scoring.domain.TransactionCompletedEvent;
+import com.fraudsentinel.scoring.history.TransactionHistoryService;
 import com.fraudsentinel.scoring.scoring.ScoringService;
 import jakarta.validation.ConstraintViolation;
 import jakarta.validation.Validator;
@@ -18,11 +19,13 @@ public class TransactionCompletedConsumer {
     private final ScoringService scoringService;
     private final JsonMapper json;
     private final Validator validator;
+    private final TransactionHistoryService historyService;
 
-    public TransactionCompletedConsumer(ScoringService scoringService, JsonMapper json, Validator validator) {
+    public TransactionCompletedConsumer(ScoringService scoringService, JsonMapper json, Validator validator, TransactionHistoryService historyService) {
         this.scoringService = scoringService;
         this.json = json;
         this.validator = validator;
+        this.historyService = historyService;
     }
 
     @KafkaListener(topics = "${app.topics.transactions}")
@@ -37,6 +40,7 @@ public class TransactionCompletedConsumer {
             throw new InvalidMessageException("Invalid txn " + event.transaction().txnId() + ": " + violations);
         }
 
+        historyService.record(event);
         scoringService.monitor(event);
     }
 }

@@ -1,8 +1,11 @@
 package com.fraudsentinel.scoring.alert;
 
+import com.fraudsentinel.scoring.history.TransactionHistoryService;
+import com.fraudsentinel.scoring.history.TransactionView;
 import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.Duration;
 import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
@@ -15,10 +18,12 @@ public class AlertController {
 
     private final AlertRepository repository;
     private final AlertCaseService caseService;
+    private final TransactionHistoryService history;
 
-    public AlertController(AlertRepository repository, AlertCaseService caseService) {
+    public AlertController(AlertRepository repository, AlertCaseService caseService,  TransactionHistoryService historyService) {
         this.repository = repository;
         this.caseService = caseService;
+        this.history = historyService;
     }
 
     @GetMapping
@@ -61,5 +66,13 @@ public class AlertController {
             Double precision = (confirmed + fp) == 0 ? null : (double) confirmed / (confirmed + fp);
             return new RuleStatsView(e.getKey(), confirmed, fp, precision);
         }).toList();
+    }
+
+    /** Các giao dịch của cùng tài khoản trong ±hours giờ quanh giao dịch bị cảnh báo. */
+    @GetMapping("/{id}/account-history")
+    public List<TransactionView> accountHistory(@PathVariable Long id,
+                                                @RequestParam(defaultValue = "24") int hours) {
+        Alert alert = repository.findById(id).orElseThrow(() -> new AlertNotFoundException(id));
+        return history.around(alert.getAccountId(), alert.getTxnTime(), Duration.ofHours(Math.clamp(hours, 1, 168)));
     }
 }

@@ -4,6 +4,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import tools.jackson.databind.json.JsonMapper;
 
+import java.time.Clock;
 import java.time.Instant;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -16,13 +17,15 @@ public class RuleConfigService {
     private final RuleConfigAuditRepository audits;
     private final RuleConfigProvider provider;
     private final JsonMapper json;
+    private final Clock clock;
 
     public RuleConfigService(RuleConfigRepository repository, RuleConfigAuditRepository audits,
-                             RuleConfigProvider provider, JsonMapper json) {
+                             RuleConfigProvider provider, JsonMapper json, Clock clock) {
         this.repository = repository;
         this.audits = audits;
         this.provider = provider;
         this.json = json;
+        this.clock = clock;
     }
 
     @Transactional(readOnly = true)
@@ -40,7 +43,7 @@ public class RuleConfigService {
         provider.validateParams(code, paramsJson);
 
         String before = describe(e);
-        Instant now = Instant.now();
+        Instant now = Instant.now(clock);
         e.update(req.enabled(), req.score(), paramsJson, actor, now);
         audits.save(new RuleConfigAudit(code, before, describe(e), actor, now));
         return view(e);

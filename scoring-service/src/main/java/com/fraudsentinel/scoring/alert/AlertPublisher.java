@@ -1,6 +1,7 @@
 package com.fraudsentinel.scoring.alert;
 
-import com.fraudsentinel.scoring.messaging.KafkaSendSupport;
+import com.fraudsentinel.scoring.domain.RuleAlertEvent;
+import com.fraudsentinel.scoring.infra.KafkaSendSupport;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.event.EventListener;
 import org.springframework.kafka.core.KafkaTemplate;

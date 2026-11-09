@@ -1,5 +1,6 @@
 package com.fraudsentinel.scoring.rule;
 
+import com.fraudsentinel.scoring.domain.Stage;
 import com.fraudsentinel.scoring.domain.Transaction;
 
 import java.util.Set;

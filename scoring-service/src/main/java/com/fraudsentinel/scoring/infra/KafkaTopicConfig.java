@@ -1,4 +1,4 @@
-package com.fraudsentinel.scoring.messaging;
+package com.fraudsentinel.scoring.infra;
 
 import org.apache.kafka.clients.admin.NewTopic;
 import org.springframework.beans.factory.annotation.Value;

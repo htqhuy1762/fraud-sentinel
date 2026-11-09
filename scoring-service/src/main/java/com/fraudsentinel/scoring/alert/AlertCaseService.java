@@ -1,8 +1,11 @@
 package com.fraudsentinel.scoring.alert;
 
+import com.fraudsentinel.scoring.domain.RuleAlertEvent;
+
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Clock;
 import java.time.Instant;
 import java.util.List;
 
@@ -13,10 +16,12 @@ public class AlertCaseService {
 
     private final AlertRepository alerts;
     private final AlertAuditRepository audits;
+    private final Clock clock;
 
-    public AlertCaseService(AlertRepository alerts, AlertAuditRepository audits) {
+    public AlertCaseService(AlertRepository alerts, AlertAuditRepository audits, Clock clock) {
         this.alerts = alerts;
         this.audits = audits;
+        this.clock = clock;
     }
 
     @Transactional
@@ -30,7 +35,7 @@ public class AlertCaseService {
     public AlertView assign(Long id, String analyst) {
         Alert alert = get(id);
         AlertStatus from = alert.getStatus();
-        Instant now = Instant.now();
+        Instant now = Instant.now(clock);
         alert.assign(analyst, now);
         audits.save(AlertAuditEntry.of(alert, "ASSIGNED", from, analyst, null, now));
         return AlertView.of(alert);
@@ -41,7 +46,7 @@ public class AlertCaseService {
         Alert alert = get(id);
         AlertStatus from = alert.getStatus();
         alert.release(analyst);
-        audits.save(AlertAuditEntry.of(alert, "RELEASED", from, analyst, null, Instant.now()));
+        audits.save(AlertAuditEntry.of(alert, "RELEASED", from, analyst, null, Instant.now(clock)));
         return AlertView.of(alert);
     }
 
@@ -49,16 +54,16 @@ public class AlertCaseService {
     public AlertView resolve(Long id, String analyst, AlertStatus outcome, String note) {
         Alert alert = get(id);
         AlertStatus from = alert.getStatus();
-        Instant now = Instant.now();
+        Instant now = Instant.now(clock);
         alert.resolve(analyst, outcome, note, now);
         audits.save(AlertAuditEntry.of(alert, "RESOLVED", from, analyst, note, now));
         return AlertView.of(alert);
     }
 
     @Transactional(readOnly = true)
-    public List<AlertAuditEntry> history(Long id) {
+    public List<AuditEntryView> history(Long id) {
         get(id);
-        return audits.findByAlertIdOrderByCreatedAtAsc(id);
+        return audits.findByAlertIdOrderByCreatedAtAsc(id).stream().map(AuditEntryView::of).toList();
     }
 
     private Alert get(Long id) {

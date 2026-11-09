@@ -1,14 +1,13 @@
 package com.fraudsentinel.scoring.scoring;
 
-import com.fraudsentinel.scoring.alert.RuleAlertEvent;
 import com.fraudsentinel.scoring.config.FraudProperties;
 import com.fraudsentinel.scoring.domain.*;
 import com.fraudsentinel.scoring.rule.RuleEngine;
 import com.fraudsentinel.scoring.rule.RuleResult;
-import com.fraudsentinel.scoring.rule.Stage;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 
+import java.time.Clock;
 import java.time.Instant;
 import java.util.EnumSet;
 import java.util.List;
@@ -20,18 +19,21 @@ public class ScoringService {
     private final RuleEngine ruleEngine;
     private final FraudProperties.DecisionThresholds thresholds;
     private final ApplicationEventPublisher publisher;
+    private final Clock clock;
 
-    public ScoringService(RuleEngine ruleEngine, FraudProperties props, ApplicationEventPublisher publisher) {
+    public ScoringService(RuleEngine ruleEngine, FraudProperties props,
+                          ApplicationEventPublisher publisher, Clock clock) {
         this.ruleEngine = ruleEngine;
         this.thresholds = props.decision();
         this.publisher = publisher;
+        this.clock = clock;
     }
 
     /** Đường INLINE: core đang chờ quyết định trước khi thực hiện giao dịch. */
     public ScoreResult score(Transaction txn) {
         ScoreResult result = evaluate(txn, EnumSet.of(Stage.INLINE));
         if (result.decision() != Decision.APPROVE) {
-            publisher.publishEvent(new RuleAlertEvent(txn, result, Stage.INLINE, null, Instant.now()));
+            publisher.publishEvent(new RuleAlertEvent(txn, result, Stage.INLINE, null, Instant.now(clock)));
         }
         return result;
     }
@@ -46,7 +48,7 @@ public class ScoringService {
         if (result.decision() != Decision.APPROVE) {
             boolean fundsMoved = event.status() == TxnStatus.EXECUTED;
             publisher.publishEvent(new RuleAlertEvent(event.transaction(), result, Stage.MONITORING,
-                    fundsMoved, Instant.now()));
+                    fundsMoved, Instant.now(clock)));
         }
     }
 

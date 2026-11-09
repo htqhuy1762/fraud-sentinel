@@ -1,4 +1,4 @@
-package com.fraudsentinel.scoring.messaging;
+package com.fraudsentinel.scoring.infra;
 
 import org.springframework.kafka.support.SendResult;
 

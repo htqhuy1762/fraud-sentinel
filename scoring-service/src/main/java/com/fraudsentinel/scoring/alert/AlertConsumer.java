@@ -1,5 +1,7 @@
 package com.fraudsentinel.scoring.alert;
 
+import com.fraudsentinel.scoring.domain.RuleAlertEvent;
+
 import org.hibernate.exception.ConstraintViolationException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;

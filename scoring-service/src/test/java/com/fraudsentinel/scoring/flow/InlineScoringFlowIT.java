@@ -4,7 +4,7 @@ import com.fraudsentinel.scoring.TestcontainersConfig;
 import com.fraudsentinel.scoring.alert.*;
 import com.fraudsentinel.scoring.domain.Decision;
 import com.fraudsentinel.scoring.domain.ScoreResult;
-import com.fraudsentinel.scoring.rule.Stage;
+import com.fraudsentinel.scoring.domain.Stage;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;

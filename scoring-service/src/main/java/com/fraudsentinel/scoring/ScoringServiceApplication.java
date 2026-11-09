@@ -12,8 +12,8 @@ import java.util.TimeZone;
 @EnableScheduling
 public class ScoringServiceApplication {
 
-	public static void main(String[] args) {
-		TimeZone.setDefault(TimeZone.getTimeZone("UTC"));
-		SpringApplication.run(ScoringServiceApplication.class, args);
-	}
+    public static void main(String[] args) {
+        TimeZone.setDefault(TimeZone.getTimeZone("UTC"));
+        SpringApplication.run(ScoringServiceApplication.class, args);
+    }
 }

@@ -7,6 +7,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
@@ -18,9 +19,11 @@ public class TransactionHistoryService {
     static final int MAX_PAGE_SIZE = 200;
 
     private final TransactionHistoryRepository repository;
+    private final Clock clock;
 
-    public TransactionHistoryService(TransactionHistoryRepository repository) {
+    public TransactionHistoryService(TransactionHistoryRepository repository, Clock clock) {
         this.repository = repository;
+        this.clock = clock;
     }
 
     @Transactional
@@ -31,7 +34,7 @@ public class TransactionHistoryService {
                 t.deviceId(), t.ip(), t.timestamp(),
                 event.inlineDecision() == null ? null : event.inlineDecision().name(),
                 event.status().name(),
-                Instant.now());
+                Instant.now(clock));
         if (inserted == 0) {
             log.info("Transaction {} already recorded, skip", t.txnId());
         }

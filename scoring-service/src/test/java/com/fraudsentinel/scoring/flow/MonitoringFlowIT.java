@@ -4,7 +4,7 @@ import com.fraudsentinel.scoring.TestcontainersConfig;
 import com.fraudsentinel.scoring.alert.Alert;
 import com.fraudsentinel.scoring.alert.AlertRepository;
 import com.fraudsentinel.scoring.domain.*;
-import com.fraudsentinel.scoring.rule.Stage;
+import com.fraudsentinel.scoring.domain.Stage;
 import org.apache.kafka.clients.consumer.Consumer;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.junit.jupiter.api.Test;

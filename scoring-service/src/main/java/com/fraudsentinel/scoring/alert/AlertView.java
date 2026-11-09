@@ -1,7 +1,7 @@
 package com.fraudsentinel.scoring.alert;
 
 import com.fraudsentinel.scoring.domain.Decision;
-import com.fraudsentinel.scoring.rule.Stage;
+import com.fraudsentinel.scoring.domain.Stage;
 
 import java.math.BigDecimal;
 import java.time.Instant;

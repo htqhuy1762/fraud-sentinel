@@ -1,4 +1,4 @@
-package com.fraudsentinel.scoring.messaging;
+package com.fraudsentinel.scoring.infra;
 
 public class KafkaPublishException extends RuntimeException {
     public KafkaPublishException(String message, Throwable cause) {

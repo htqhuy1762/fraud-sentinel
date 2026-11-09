@@ -1,9 +1,10 @@
 package com.fraudsentinel.scoring.alert;
 
+import com.fraudsentinel.scoring.domain.RuleAlertEvent;
 import com.fraudsentinel.scoring.domain.Decision;
 import com.fraudsentinel.scoring.domain.ScoreResult;
 import com.fraudsentinel.scoring.domain.Transaction;
-import com.fraudsentinel.scoring.rule.Stage;
+import com.fraudsentinel.scoring.domain.Stage;
 import org.junit.jupiter.api.Test;
 
 import java.math.BigDecimal;

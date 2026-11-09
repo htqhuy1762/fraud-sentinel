@@ -7,8 +7,6 @@ import org.springframework.web.bind.annotation.*;
 
 import java.time.Duration;
 import java.util.List;
-import java.util.Map;
-import java.util.TreeMap;
 
 @RestController
 @RequestMapping("/api/v1/alerts")
@@ -18,12 +16,15 @@ public class AlertController {
 
     private final AlertRepository repository;
     private final AlertCaseService caseService;
+    private final RuleStatsService ruleStatsService;
     private final TransactionHistoryService history;
 
-    public AlertController(AlertRepository repository, AlertCaseService caseService,  TransactionHistoryService historyService) {
+    public AlertController(AlertRepository repository, AlertCaseService caseService,
+                           RuleStatsService ruleStatsService, TransactionHistoryService history) {
         this.repository = repository;
         this.caseService = caseService;
-        this.history = historyService;
+        this.ruleStatsService = ruleStatsService;
+        this.history = history;
     }
 
     @GetMapping
@@ -49,23 +50,13 @@ public class AlertController {
     }
 
     @GetMapping("/{id}/history")
-    public List<AlertAuditEntry> history(@PathVariable Long id) {
+    public List<AuditEntryView> history(@PathVariable Long id) {
         return caseService.history(id);
     }
 
     @GetMapping("/stats/rules")
     public List<RuleStatsView> ruleStats() {
-        Map<String, long[]> counts = new TreeMap<>();   // rule → [confirmed, falsePositive]
-        for (AlertRepository.RuleOutcomeCount row : repository.countOutcomesByRule()) {
-            long[] c = counts.computeIfAbsent(row.getRule(), k -> new long[2]);
-            if ("CONFIRMED_FRAUD".equals(row.getOutcome())) c[0] += row.getTotal();
-            else c[1] += row.getTotal();
-        }
-        return counts.entrySet().stream().map(e -> {
-            long confirmed = e.getValue()[0], fp = e.getValue()[1];
-            Double precision = (confirmed + fp) == 0 ? null : (double) confirmed / (confirmed + fp);
-            return new RuleStatsView(e.getKey(), confirmed, fp, precision);
-        }).toList();
+        return ruleStatsService.ruleStats();
     }
 
     /** Các giao dịch của cùng tài khoản trong ±hours giờ quanh giao dịch bị cảnh báo. */

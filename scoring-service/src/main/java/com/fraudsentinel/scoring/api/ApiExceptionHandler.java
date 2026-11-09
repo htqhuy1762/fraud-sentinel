@@ -4,7 +4,7 @@ import com.fraudsentinel.scoring.common.ConflictException;
 import com.fraudsentinel.scoring.common.ForbiddenException;
 import com.fraudsentinel.scoring.common.InvalidInputException;
 import com.fraudsentinel.scoring.common.NotFoundException;
-import com.fraudsentinel.scoring.messaging.KafkaPublishException;
+import com.fraudsentinel.scoring.infra.KafkaPublishException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;

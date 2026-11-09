@@ -1,5 +1,6 @@
 package com.fraudsentinel.scoring.messaging;
 
+import com.fraudsentinel.scoring.infra.InvalidMessageException;
 import com.fraudsentinel.scoring.domain.Transaction;
 import com.fraudsentinel.scoring.domain.TransactionCompletedEvent;
 import com.fraudsentinel.scoring.history.TransactionHistoryService;

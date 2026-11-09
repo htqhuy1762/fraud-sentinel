@@ -1,8 +1,4 @@
-package com.fraudsentinel.scoring.alert;
-
-import com.fraudsentinel.scoring.domain.ScoreResult;
-import com.fraudsentinel.scoring.domain.Transaction;
-import com.fraudsentinel.scoring.rule.Stage;
+package com.fraudsentinel.scoring.domain;
 
 import java.time.Instant;
 

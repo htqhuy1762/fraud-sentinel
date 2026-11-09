@@ -1,4 +1,4 @@
-package com.fraudsentinel.scoring.rule;
+package com.fraudsentinel.scoring.domain;
 
 public enum Stage {
     /** Chạy trên đường duyệt giao dịch: phải nhanh. */

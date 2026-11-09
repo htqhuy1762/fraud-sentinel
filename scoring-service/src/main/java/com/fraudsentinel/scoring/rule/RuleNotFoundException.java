@@ -1,5 +1,7 @@
 package com.fraudsentinel.scoring.rule;
 
-public class RuleNotFoundException extends RuntimeException {
+import com.fraudsentinel.scoring.common.NotFoundException;
+
+public class RuleNotFoundException extends NotFoundException {
     public RuleNotFoundException(String code) { super("Rule " + code + " not found"); }
 }

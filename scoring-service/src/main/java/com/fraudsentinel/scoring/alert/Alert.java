@@ -1,5 +1,6 @@
 package com.fraudsentinel.scoring.alert;
 
+import com.fraudsentinel.scoring.common.InvalidInputException;
 import com.fraudsentinel.scoring.domain.Decision;
 import com.fraudsentinel.scoring.rule.Stage;
 import jakarta.persistence.*;
@@ -97,7 +98,7 @@ public class Alert {
 
     public void resolve(String analyst, AlertStatus outcome, String note, Instant now) {
         if (outcome != AlertStatus.CONFIRMED_FRAUD && outcome != AlertStatus.FALSE_POSITIVE) {
-            throw new IllegalArgumentException("Outcome must be CONFIRMED_FRAUD or FALSE_POSITIVE");
+            throw new InvalidInputException("Outcome must be CONFIRMED_FRAUD or FALSE_POSITIVE");
         }
         requireStatus(AlertStatus.IN_REVIEW, "resolve");
         requireAssignee(analyst);

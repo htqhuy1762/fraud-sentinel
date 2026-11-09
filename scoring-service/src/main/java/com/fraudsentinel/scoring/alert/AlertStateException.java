@@ -1,6 +1,8 @@
 package com.fraudsentinel.scoring.alert;
 
-public class AlertStateException extends RuntimeException {
+import com.fraudsentinel.scoring.common.ConflictException;
+
+public class AlertStateException extends ConflictException {
     public AlertStateException(String message) {
         super(message);
     }

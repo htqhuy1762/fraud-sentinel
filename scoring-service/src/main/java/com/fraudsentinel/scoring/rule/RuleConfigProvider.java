@@ -1,5 +1,6 @@
 package com.fraudsentinel.scoring.rule;
 
+import com.fraudsentinel.scoring.common.InvalidInputException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -77,10 +78,14 @@ public class RuleConfigProvider {
     /** Dùng khi admin cập nhật: kiểm tra params TRƯỚC khi lưu. */
     public void validateParams(String code, String paramsJson) {
         Rule<?> rule = rulesByCode.get(code);
+        if (rule == null) {
+            // Có dòng cấu hình trong DB nhưng không có class Rule tương ứng
+            throw new RuleNotFoundException(code);
+        }
         try {
             json.readValue(paramsJson, rule.paramsType());
         } catch (JacksonException e) {
-            throw new IllegalArgumentException("Invalid params for " + code + ": " + e.getOriginalMessage());
+            throw new InvalidInputException("Invalid params for " + code + ": " + e.getOriginalMessage());
         }
     }
 }

@@ -1,5 +1,6 @@
 package com.fraudsentinel.scoring.history;
 
+import com.fraudsentinel.scoring.common.InvalidInputException;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.web.bind.annotation.*;
 
@@ -22,7 +23,7 @@ public class AccountHistoryController {
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Instant beforeTime,
             @RequestParam(required = false) String beforeTxnId) {
         if ((beforeTime == null) != (beforeTxnId == null)) {
-            throw new IllegalArgumentException("beforeTime and beforeTxnId must be given together");
+            throw new InvalidInputException("beforeTime and beforeTxnId must be given together");
         }
         return history.page(accountId, limit, beforeTime, beforeTxnId);
     }

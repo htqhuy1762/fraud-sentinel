@@ -1,5 +1,7 @@
 # Fraud Sentinel
 
+[![CI](https://github.com/htqhuy1762/fraud-sentinel/actions/workflows/ci.yml/badge.svg)](https://github.com/htqhuy1762/fraud-sentinel/actions/workflows/ci.yml)
+
 A real-time transaction fraud detection system in Java, modelled on how banks and payment platforms check transactions twice: **inline**, before the payment is approved, and in **post-transaction monitoring**, after it has been executed.
 
 Inline, every transaction gets a risk score from a set of independent rules and one of three decisions: **APPROVE**, **REVIEW** or **BLOCK**, together with machine-readable reason codes (`AMT_HIGH`, `TIME_NIGHT`, `VEL_BURST`). Non-approved transactions become alerts that analysts pick up, investigate and close as confirmed fraud or false positive; those outcomes feed back into per-rule precision.
@@ -81,6 +83,10 @@ Scores are summed (capped at 100): **≥ 80 → BLOCK**, **≥ 50 → REVIEW**, 
 
 **Dead-letter topics.** Failures are classified: malformed JSON and invalid transactions go straight to `transactions.completed-dlt` (retrying cannot fix them), while transient failures such as a database blip are retried twice before landing in `<topic>-dlt`. A single bad message therefore never blocks its partition, and failed messages keep their error details in headers for later replay.
 
+**Module boundaries checked by the build.** The service is a modular monolith: each direct sub-package (`alert`, `rule`, `scoring`, `history`...) is a module, shared types live in `domain`, `common` and `infra`. A Spring Modulith test (`ModularityTest`) fails the build if modules depend on each other in a cycle or reach into another module's internal packages, so the boundaries that would make a later split into services possible are enforced rather than hoped for.
+
+**Errors mapped by category.** Exceptions extend one of `NotFoundException`, `ConflictException`, `ForbiddenException` or `InvalidInputException`, and a single handler maps each category to an RFC 9457 problem response. Anything else, including an `IllegalArgumentException` from a bug, becomes a 500 instead of being reported as the client's fault. Request validation mirrors the database column limits, so bad input is rejected at the edge instead of failing at write time.
+
 **Schema owned by Flyway.** Hibernate only validates (`ddl-auto: validate`); every schema change is a versioned SQL migration.
 
 **Case management with a guarded workflow.** An alert moves `OPEN → IN_REVIEW → CONFIRMED_FRAUD | FALSE_POSITIVE` (or back to `OPEN` on release). The transition rules live in the `Alert` entity itself, which has no setters, so no code path can skip a step; only the assigned analyst can resolve or release. Every transition is written to an append-only audit table in the same transaction as the status change.
@@ -160,12 +166,16 @@ fraud-sentinel/
 ├── scoring-service/
 │   └── com.fraudsentinel.scoring
 │       ├── api/              REST entry point
-│       ├── messaging/        completed-transaction consumer, topics, dead-letter handling
+│       ├── messaging/        completed-transaction consumer
+│       ├── infra/            Kafka topics, send-and-wait helper, dead-letter handling
+│       ├── history/          transaction history and account history API
+│       ├── common/           exception categories mapped to HTTP status
 │       ├── scoring/          inline scoring and post-transaction monitoring
 │       ├── rule/             Rule interface, RuleEngine, rule implementations
 │       ├── feature/          Redis velocity store (+ Lua script in resources)
 │       ├── alert/            alert publishing and persistence, case workflow, audit, rule stats
-│       └── config/           typed configuration (FraudProperties)
+│       ├── domain/           transaction, decision, stage, events shared by all modules
+│       └── config/           typed configuration (FraudProperties), Clock
 └── simulator/                synthetic traffic with labelled fraud scenarios
 ```
 

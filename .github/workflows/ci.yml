@@ -1,0 +1,38 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+
+      # simulator: chỉ cần compile và đóng gói (nó là công cụ giả lập, không có test nghiệp vụ)
+      - name: Build simulator
+        run: mvn -B -ntp -pl simulator package -DskipTests
+
+      # scoring-service: unit test (surefire) + integration test trên Testcontainers (failsafe).
+      # Runner ubuntu của GitHub có sẵn Docker nên Testcontainers chạy được.
+      - name: Test scoring-service
+        run: mvn -B -ntp -pl scoring-service verify
+
+      - name: Upload test reports on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-reports
+          path: |
+            scoring-service/target/surefire-reports
+            scoring-service/target/failsafe-reports

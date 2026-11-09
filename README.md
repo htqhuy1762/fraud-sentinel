@@ -81,7 +81,11 @@ Scores are summed (capped at 100): **≥ 80 → BLOCK**, **≥ 50 → REVIEW**, 
 
 **No decision without a record.** A REVIEW or BLOCK decision is only returned after its alert has been acknowledged by Kafka (`rule-alerts`). If that fails, the REST API answers **503 within ~3 s** (tight producer timeouts) instead of returning an unrecorded decision; the caller's fallback policy then applies and the monitoring stage scores the payment afterwards. On the Kafka path a failed alert publish is retried. A separate consumer group (`alert-writer`) persists alerts, so a database outage delays alert storage without losing alerts or slowing scoring.
 
-**Dead-letter topics.** Failures are classified: malformed JSON and invalid transactions go straight to `transactions.completed-dlt` (retrying cannot fix them), while transient failures such as a database blip are retried twice before landing in `<topic>-dlt`. A single bad message therefore never blocks its partition, and failed messages keep their error details in headers for later replay.
+**Dead letters are parked durably, then replayed or discarded on purpose.** Failures are classified: malformed JSON and invalid transactions go straight to `<topic>-dlt` (retrying cannot fix them), while transient failures such as a database blip are retried with exponential back-off (0.5 s → 1 s → 2 s → 4 s, about 10 s in total) before landing there. Retries are kept short on purpose: while a message is being retried its whole partition waits, so a long outage is better handled by parking messages than by stalling everything behind them.
+
+A dedicated recorder reads every DLT topic into the `dead_letter` table (payload, original topic/partition/offset, exception, status), logs each one at ERROR, and so keeps it beyond Kafka's retention. Operators list them and either **replay** one to its original topic once the cause is fixed or **discard** it with a mandatory note. Replay flushes the status change before sending, so two operators cannot replay the same message, and the consumers it lands on are idempotent, so a replay that is repeated after a crash is harmless. The recorder itself has no dead-letter topic of its own: if it cannot write (database down) it retries forever with back-off up to one minute, because it is the last stop.
+
+**Transaction history for investigations.** Every completed transaction, scored or not, is stored in `transaction_history`, written by the monitoring consumer before monitoring runs, so later monitoring rules always see history up to the current transaction. (A separate consumer group would decouple the write but gives no ordering between groups.) Writes use `INSERT ... ON CONFLICT DO NOTHING`, so a redelivered event is a no-op instead of an error that would block the partition. Account history is served with **keyset pagination** on `(txn_time, txn_id)` backed by a matching index, so every page costs the same however deep it is, and `GET /api/v1/alerts/{id}/account-history` shows what the account did around a flagged transaction.
 
 **Module boundaries checked by the build.** The service is a modular monolith: each direct sub-package (`alert`, `rule`, `scoring`, `history`...) is a module, shared types live in `domain`, `common` and `infra`. A Spring Modulith test (`ModularityTest`) fails the build if modules depend on each other in a cycle or reach into another module's internal packages, so the boundaries that would make a later split into services possible are enforced rather than hoped for.
 
@@ -146,12 +150,22 @@ docker exec -it fs-kafka /opt/kafka/bin/kafka-console-consumer.sh \
 docker exec -it fs-postgres psql -U fraud -d fraud \
   -c "select txn_id, stage, funds_moved, decision, reasons from fraud_alert where stage = 'MONITORING';"
 
+# Dead letters: list, inspect, replay or discard
+curl http://localhost:8081/api/v1/dead-letters
+curl -X POST http://localhost:8081/api/v1/dead-letters/1/replay -H "X-Analyst-Id: ops-1"
+curl -X POST http://localhost:8081/api/v1/dead-letters/2/discard -H "X-Analyst-Id: ops-1" \
+  -H "Content-Type: application/json" -d '{"note":"test message, not a real transaction"}'
+
 # Work a case (identity comes from the X-Analyst-Id header)
 curl -X POST http://localhost:8081/api/v1/alerts/1/assign -H "X-Analyst-Id: alice"
 curl -X POST http://localhost:8081/api/v1/alerts/1/resolve -H "X-Analyst-Id: alice" \
   -H "Content-Type: application/json" -d '{"outcome":"CONFIRMED_FRAUD","note":"customer confirmed"}'
 curl http://localhost:8081/api/v1/alerts/1/history
 curl http://localhost:8081/api/v1/alerts/stats/rules
+
+# Account history (keyset-paged) and the context around an alert
+curl "http://localhost:8081/api/v1/accounts/ACC00042/transactions?limit=20"
+curl "http://localhost:8081/api/v1/alerts/1/account-history?hours=24"
 
 # Alerts grouped by reason
 docker exec -it fs-postgres psql -U fraud -d fraud \
@@ -174,6 +188,7 @@ fraud-sentinel/
 │       ├── rule/             Rule interface, RuleEngine, rule implementations
 │       ├── feature/          Redis velocity store (+ Lua script in resources)
 │       ├── alert/            alert publishing and persistence, case workflow, audit, rule stats
+│       ├── deadletter/       durable record of failed messages, replay and discard
 │       ├── domain/           transaction, decision, stage, events shared by all modules
 │       └── config/           typed configuration (FraudProperties), Clock
 └── simulator/                synthetic traffic with labelled fraud scenarios
@@ -185,7 +200,7 @@ These are deliberate next steps, not oversights:
 
 - **Analyst identity is trusted from a request header.** `X-Analyst-Id` is not authenticated yet; Spring Security with JWT is planned. Confirming fraud also has no second approver (maker-checker) yet.
 - **Rule changes reach other instances by polling.** An update applies immediately on the instance that received it and within one refresh interval (10 s) elsewhere; a push notification (e.g. Redis Pub/Sub) with polling kept as a safety net would shorten that gap.
-- **Short fixed retry before dead-lettering alerts.** A long database outage moves alerts into `rule-alerts-dlt` instead of waiting; an exponential back-off and a replay tool are planned.
+- **Dead letters are not yet alerted on.** They are logged at ERROR and listed by the API, but nothing pages an operator; an alert on the dead-letter count comes with the observability work.
 - **No monitoring-only rules yet.** All current rules are `INLINE`, so the monitoring stage only does catch-up scoring for unscored payments. Wide-window and cross-account rules, and flags they set for the inline stage, are next.
 - **Simplified core behaviour.** The simulator treats `REVIEW` as executed; a real core would step up authentication first. For monitoring alerts the `decision` column means risk level (REVIEW = medium, BLOCK = high), not an approval decision.
 - **Event time is trusted.** The velocity window uses the transaction's own timestamp; a production system would reject timestamps that drift too far from server time.
@@ -200,7 +215,8 @@ These are deliberate next steps, not oversights:
 - [x] Case management: assign, release, resolve, audit trail, per-rule precision
 - [x] Rules stored in the database: enable, disable and retune without redeploying
 - [x] Integration tests on Testcontainers (Postgres, Kafka, Redis) covering the inline and monitoring flows
-- [ ] Transaction history: persist every completed transaction and expose an account history for investigations
+- [x] Transaction history: persist every completed transaction and expose an account history for investigations
+- [x] Dead letters: durable record, replay and discard, exponential back-off
 - [ ] Blacklist flags: set by monitoring and by confirmed cases, checked inline in a single Redis lookup
 - [ ] Device and recipient features: new device + high value, accounts sharing a device, new recipients in 24 h (first monitoring-only rule), mule-account detection on the receiving side
 - [ ] Amount per 1 h / 24 h and impossible travel
